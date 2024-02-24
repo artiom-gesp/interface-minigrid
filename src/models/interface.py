@@ -50,6 +50,20 @@ class InterfaceActorCritic(nn.Module):
         self.alpha = 0.99
         self.agent_loss_scale = 10
 
+        self.cnn = nn.Sequential(
+            nn.Conv2d(3, 16, (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, (2, 2)),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+
+        with torch.no_grad():
+            self.n_flatten = self.cnn(torch.rand((1, 3, 19, 19))).shape[1]
+
+
     def __repr__(self) -> str:
         return "interface_actor_critic"
 
@@ -239,13 +253,17 @@ class InterfaceTransformer(InterfaceActorCritic):
             embedding_tables=nn.ModuleList([nn.Embedding(obs_vocab_size, config.embed_dim), nn.Embedding(obs_vocab_size, config.embed_dim)])
         )
 
+        self.full_linear = nn.Sequential(nn.Linear(self.n_flatten, config.embed_dim), nn.ReLU())
+
+        print(self.n_flatten)
+        
         self.critic_linear = nn.Sequential(
-                nn.Linear(config.embed_dim, config.embed_dim),
+                nn.Linear(2 * config.embed_dim, config.embed_dim),
                 nn.ReLU(),
                 nn.Linear(config.embed_dim, 1)
             )
         self.actor_linear = nn.Sequential(
-                nn.Linear(config.embed_dim, config.embed_dim),
+                nn.Linear(2 * config.embed_dim, config.embed_dim),
                 nn.ReLU(),
                 nn.Linear(config.embed_dim, obs_vocab_size)
             )
@@ -263,11 +281,15 @@ class InterfaceTransformer(InterfaceActorCritic):
         self.keys_values_wm = self.transformer.generate_empty_keys_values(n=n, max_tokens=self.config.max_tokens)
         self.n = n
     
-    def forward(self, tokens: torch.LongTensor) -> InterfaceOutput:
+    def forward(self, tokens: torch.LongTensor, full_tokens: torch.LongTensor) -> InterfaceOutput:
         num_steps = tokens.size(1)  # (B, T)
         assert num_steps <= self.config.max_tokens
         prev_steps = 0 if self.keys_values_wm is None else self.keys_values_wm.size
 
+        print(full_tokens.shape)
+        x_full = self.cnn(full_tokens.float())
+        print(x_full.shape)
+        x_full = self.full_linear(x_full)
         if self.keys_values_wm.size + num_steps > self.transformer.config.max_tokens:
            self.keys_values_wm = self.transformer.generate_empty_keys_values(n=self.n, max_tokens=self.config.max_tokens)
 
@@ -275,7 +297,8 @@ class InterfaceTransformer(InterfaceActorCritic):
         sequences += self.pos_emb(prev_steps + torch.arange(num_steps, device=tokens.device))
 
         x = self.transformer(sequences, None)
-        logits_actions = self.actor_linear(x)
+        logits_actions = self.actor_linear(torch.concat([x, x_full], dim=-1))
+
         means_values = self.critic_linear(x)
         means_values = means_values.sum(-2)
         return InterfaceOutput(logits_actions, means_values)

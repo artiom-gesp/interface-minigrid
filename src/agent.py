@@ -70,7 +70,7 @@ class InterfaceAgent(nn.Module):
             i += 1
         self.step = 0
     
-    def act(self, obs: torch.FloatTensor, should_sample: bool = True, temperature: float = 1.0) -> torch.LongTensor:
+    def act(self, obs: torch.IntTensor, full_obs: torch.IntTensor) -> torch.LongTensor:
 
         # if self.user_actor_critic.use_original_obs:
         #     input_ac = obs
@@ -78,8 +78,9 @@ class InterfaceAgent(nn.Module):
         #     input_ac = torch.clamp(self.tokenizer.encode_decode(obs, should_preprocess=True, should_postprocess=True), 0, 1)
         _, c, w, h = obs.size()
 
-        tokens = rearrange(obs, 'b c w h -> b (c w h)').int()
-        outputs_interface_ac = self.actor_critic(tokens)
+        tokens = rearrange(obs, 'b w h c -> b (w h c)').int()
+        full_tokens = rearrange(full_obs, 'b w h c -> b c w h').int()
+        outputs_interface_ac = self.actor_critic(tokens, full_tokens)
         modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
         modified_obs = rearrange(modified_obs, 'b (c w h) -> b c w h', c=c, w=w, h=h)
         masked_modified_obs = self.actor_critic.mask_output(modified_obs)

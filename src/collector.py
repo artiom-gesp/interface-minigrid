@@ -14,6 +14,16 @@ from envs import SingleProcessEnv, MultiProcessEnv
 from episode import Episode
 from utils import EpisodeDirManager, RandomHeuristic
 
+from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX
+
+def full_obs(env):
+    full_grid = env.grid.encode()
+    full_grid[env.agent_pos[0]][env.agent_pos[1]] = np.array(
+        [OBJECT_TO_IDX["agent"], COLOR_TO_IDX["red"], env.agent_dir]
+    )
+
+    return full_grid[None, ...]
+
 
 class Collector:
     def __init__(self, env: Union[SingleProcessEnv, MultiProcessEnv], dataset: EpisodesDataset, episode_dir_manager: EpisodeDirManager) -> None:
@@ -51,8 +61,9 @@ class Collector:
         pbar = tqdm(total=num_steps if num_steps is not None else num_episodes, desc=f'Experience collection ({self.dataset.name})', file=sys.stdout)
 
         while not should_stop(steps, episodes):
-
-            act, modified_obs = agent.act(obs, should_sample=should_sample, temperature=temperature)
+            
+            f_obs = torch.IntTensor(full_obs(self.env.env)).to(agent.device)
+            act, modified_obs = agent.act(obs, f_obs)
             observations.append(torch.cat([obs.cpu(), modified_obs.cpu()], dim=0).unsqueeze(0))
 
             # if random.random() < epsilon:
