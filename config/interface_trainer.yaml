@@ -1,0 +1,80 @@
+defaults:
+  - _self_
+  - tokenizer: default
+  - world_model: default
+  - actor_critic: default
+  - env: default
+  - datasets: default
+  - interface: default
+
+wandb:
+  mode: online
+  project: interface_iris
+  entity: null 
+  name: null
+  group: null
+  tags: null
+  notes: null
+
+initialization:
+  path_to_checkpoint: '/local/home/argesp/iris/checkpoints/break.pt'
+  load_tokenizer: True
+  load_world_model: True
+  load_actor_critic: True
+
+common:
+  epochs: 600
+  device: cuda:3
+  do_checkpoint: True
+  seed: 0
+  sequence_length: 15
+  resume: False # set by resume.sh script only.
+
+collection:
+  train:
+    num_envs: 1
+    stop_after_epochs: 500
+    num_episodes_to_save: 10
+    config:
+      epsilon: 0.01
+      should_sample: True
+      temperature: 1.0
+      num_steps: 20
+      burn_in: ${training.actor_critic.burn_in}
+  test:
+    num_envs: 1
+    num_episodes_to_save: ${collection.train.num_episodes_to_save}
+    config:
+      epsilon: 0.0
+      should_sample: True
+      temperature: 0.5
+      num_episodes: 5
+      burn_in: ${training.actor_critic.burn_in}
+
+training:
+  should: should
+  learning_rate: 0.0001
+  actor_critic:
+    batch_num_samples: 32
+    grad_acc_steps: 1
+    max_grad_norm: 10.0
+    start_after_epochs: 0
+    steps_per_epoch: 200
+    imagine_horizon: ${common.sequence_length}
+    reset_horizon: 3
+    burn_in: 0
+    gamma: 0.995
+    lambda_: 0.95
+    entropy_weight: 0.001
+    tokens_per_block: 17
+
+
+evaluation:
+  should: True
+  every: 10
+  actor_critic:
+    num_episodes_to_save: ${training.actor_critic.batch_num_samples}
+    horizon: ${training.actor_critic.imagine_horizon}
+    start_after_epochs: ${training.actor_critic.start_after_epochs}
+    reset_horizon: ${training.actor_critic.reset_horizon}
+
