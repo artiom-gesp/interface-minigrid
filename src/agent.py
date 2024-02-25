@@ -9,9 +9,12 @@ from models.actor_critic import ActorCritic
 from models.interface import InterfaceActorCritic
 from models.tokenizer import Tokenizer
 from models.world_model import WorldModel
-from utils import extract_state_dict, MultiCategorical, make_video
+from utils import extract_state_dict, MultiCategorical, make_video, update_full_view, decode_full_img, full_obs
 from envs.world_model_env import InterfaceWorldModelEnv
 import numpy as np
+from minigrid.core.grid import Grid
+from PIL import Image
+
 
 i = 0
 class Agent(nn.Module):
@@ -60,17 +63,15 @@ class InterfaceAgent(nn.Module):
         # if load_interface:
         #     self.actor_critic.load_state_dict(extract_state_dict(agent_state_dict, 'interface_actor_critic'))
 
-    def reset(self, obs, is_end = False):
+    def reset(self, is_end = False):
         if is_end and self.representations:
-            torch.cat(self.representations)
-            repr = rearrange(torch.cat(self.representations), 'f c h w -> f h w c').to(torch.uint8)
+            images = self.representations
             global i
-            make_video(f"./media/test_{i}.mp4", 15, np.array(repr))
+            images[0].save(f"./media/test_{i}.gif", format="GIF", append_images=images[1:], save_all=True, duration=len(images) // 4, loop=0)
             self.representations = []
             i += 1
-        self.step = 0
     
-    def act(self, obs: torch.IntTensor, full_obs: torch.IntTensor) -> torch.LongTensor:
+    def act(self, obs: torch.IntTensor, env) -> torch.LongTensor:
 
         # if self.user_actor_critic.use_original_obs:
         #     input_ac = obs
@@ -79,18 +80,23 @@ class InterfaceAgent(nn.Module):
         _, w, h, c = obs.size()
 
         tokens = rearrange(obs, 'b w h c -> b (w h c)').int()
-        full_tokens = rearrange(full_obs, 'b w h c -> b c w h').int()
-        outputs_interface_ac = self.actor_critic(tokens, full_tokens)
+        
+        f_obs = env.grid.encode()
+        full_tokens = torch.IntTensor(full_obs(env)).to(self.device)
+
+        outputs_interface_ac = self.actor_critic(tokens, rearrange(full_tokens, 'b w h c -> b c w h'))
         modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
         modified_obs = rearrange(modified_obs, 'b (w h c) -> b w h c', c=c, w=w, h=h)
-        masked_modified_obs = self.actor_critic.mask_output(modified_obs)
-        
-        # self.wm_env.obs_tokens = latent_obs
+        masked_modified_obs = self.actor_critic.mask_output(modified_obs).cpu().numpy()
 
-        # logits_actions = self.user_actor_critic(modified_obs).logits_actions[:, -1] / temperature
-        # act_token = Categorical(logits=logits_actions).sample() if should_sample else logits_actions.argmax(dim=-1)
-        # self.wm_env.step(act_token)
+        aligned_obs = np.rot90(masked_modified_obs.squeeze(0), (4 - np.abs(env.agent_dir - 3)) % 4)
 
-        # self.step += 1
-        action, _ = self.user_actor_critic.predict(masked_modified_obs.cpu().numpy())
-        return action, modified_obs
+        original_render = decode_full_img(f_obs, env.agent_pos, env.agent_dir)
+        modified_render = decode_full_img(update_full_view(env, aligned_obs), env.agent_pos, env.agent_dir)
+
+        compare_view = np.concatenate([original_render, modified_render], axis=1)
+        self.representations.append(Image.fromarray(compare_view).convert('RGBA', dither=None, palette='WEB'))
+
+        action, _ = self.user_actor_critic.predict(masked_modified_obs)
+
+        return action, modified_obs, full_tokens

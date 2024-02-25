@@ -48,7 +48,7 @@ collection:
       epsilon: 0.0
       should_sample: True
       temperature: 0.5
-      num_episodes: 5
+      num_episodes: 10
       burn_in: ${training.actor_critic.burn_in}
 
 training:

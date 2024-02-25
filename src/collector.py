@@ -16,14 +16,6 @@ from utils import EpisodeDirManager, RandomHeuristic
 import torch.nn.functional as F
 from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX
 
-def full_obs(env):
-    full_grid = env.grid.encode()
-    full_grid[env.agent_pos[0]][env.agent_pos[1]] = np.array(
-        [OBJECT_TO_IDX["agent"], COLOR_TO_IDX["red"], env.agent_dir]
-    )
-
-    return full_grid[None, ...]
-
 
 class Collector:
     def __init__(self, env: Union[SingleProcessEnv, MultiProcessEnv], dataset: EpisodesDataset, episode_dir_manager: EpisodeDirManager) -> None:
@@ -57,11 +49,11 @@ class Collector:
         agent.actor_critic.reset(n=self.env.num_envs, burnin_observations=burnin_obs_rec, mask_padding=mask_padding)
         obs = torch.IntTensor(self.obs).to(agent.device)
         if isinstance(agent, InterfaceAgent):
-            agent.reset(obs)
+            agent.reset()
         pbar = tqdm(total=num_steps if num_steps is not None else num_episodes, desc=f'Experience collection ({self.dataset.name})', file=sys.stdout)
         while not should_stop(steps, episodes):
-            f_obs = torch.IntTensor(full_obs(self.env.env)).to(agent.device)
-            act, modified_obs = agent.act(obs, f_obs)
+            
+            act, modified_obs, f_obs = agent.act(obs, self.env.env)
             padded_obs = F.pad(obs, (0, 0, 0, f_obs.size(2) - obs.size(2), 0, f_obs.size(1) - obs.size(1)))
             padded_mod_obs = F.pad(modified_obs, (0, 0, 0, f_obs.size(2) - obs.size(2), 0, f_obs.size(1) - obs.size(1)))
             observations.append(torch.cat([padded_obs.cpu(), padded_mod_obs.cpu(), f_obs.cpu()], dim=0).unsqueeze(0))
@@ -105,7 +97,7 @@ class Collector:
                 agent.actor_critic.reset(n=self.env.num_envs)
 
                 if isinstance(agent, InterfaceAgent):
-                    agent.reset(obs, is_end=True)
+                    agent.reset(is_end=True)
                 observations, actions, rewards, dones = [], [], [], []
 
         # Add incomplete episodes to dataset, and complete them later.

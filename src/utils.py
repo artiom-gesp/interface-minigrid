@@ -10,6 +10,8 @@ import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
 from episode import Episode
+from minigrid.core.constants import OBJECT_TO_IDX, COLOR_TO_IDX
+from minigrid.core.grid import Grid
 
 
 class MultiCategorical():
@@ -182,3 +184,76 @@ def make_video(fname, fps, frames, vscode_codec=False):
     for frame in frames:
         video.write(frame[:, :, ::-1])
     video.release()
+
+
+def get_top(agent_dir, agent_pos, short_side, long_side):
+    x, y = agent_pos
+    if agent_dir == 0:
+        top = (x, max(y - short_side, 0))
+    elif agent_dir == 1:
+        top = (max(x - short_side, 0), y)
+    elif agent_dir == 2:
+        top = (max(x - long_side, 0), max(y - short_side, 0))
+    elif agent_dir == 3:
+        top = (max(x - short_side, 0), max(y - long_side, 0))
+    
+    return top
+
+def update_full_view(env, view):
+    agent_dir = env.agent_dir
+    agent_pos = env.agent_pos
+
+    x, y = agent_pos
+
+    view_size = view.shape[0]
+
+    short_side = view_size // 2
+    long_side = view_size - 1
+
+    y_top, x_top = get_top(agent_dir, agent_pos, short_side, long_side)
+
+    end_x = env.size - x_top
+    end_y = env.size - y_top
+
+
+    if agent_dir == 0:
+        start_y = short_side - y if y - short_side < 0 else 0
+        start_x = 4 - x if x - long_side < 0 else 0
+    elif agent_dir == 1:
+        start_y = 0
+        start_x = short_side - x if x - short_side < 0 else 0
+    elif agent_dir == 2:
+        start_y = short_side - y if y - short_side < 0 else 0
+        start_x = 0
+    elif agent_dir == 3:
+        start_y = long_side - y if y - long_side < 0 else 0
+        start_x = short_side - x if x - short_side < 0 else 0
+
+    cropped_view = view[start_y:end_y, start_x:end_x]
+
+    full_view = env.grid.encode()
+
+    width, height, _ = cropped_view.shape
+
+    full_view[y_top:y_top+width, x_top:x_top+height] = cropped_view
+
+    return full_view
+
+
+def full_obs(env):
+    full_grid = env.grid.encode()
+    full_grid[env.agent_pos[0]][env.agent_pos[1]] = np.array(
+        [OBJECT_TO_IDX["agent"], COLOR_TO_IDX["red"], env.agent_dir]
+    )
+
+    return full_grid[None, ...]
+
+
+def decode_full_img(repr, agent_pos, agent_dir):
+    d, e = Grid.decode(repr)
+    return d.render(
+        16,
+        agent_pos=agent_pos,
+        agent_dir=agent_dir,
+        # highlight_mask=False,
+    )

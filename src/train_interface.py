@@ -80,7 +80,7 @@ class InterfaceTrainer:
         self.episode_manager_imagination = EpisodeDirManager(self.episode_dir / 'imagination', max_num_episodes=cfg.evaluation.actor_critic.num_episodes_to_save)
 
         def env_fn():
-            env = gym.make("MiniGrid-FourRooms-v0", render_mode="rgb_array", max_episode_steps=1000)
+            env = gym.make("MiniGrid-FourRooms-v0", render_mode="rgb_array", max_steps=500, agent_view_size=5)
             env = ImgObsWrapper(env)
 
             return env
@@ -101,7 +101,7 @@ class InterfaceTrainer:
         assert self.cfg.training.should or self.cfg.evaluation.should
         env = train_env if self.cfg.training.should else test_env
 
-        user_actor_critic = PPO.load("/local/home/argesp/interface-minigrid/ppo_minigrid_foor_rooms_v1", device=self.device)
+        user_actor_critic = PPO.load("/local/home/argesp/interface-minigrid/model_best_5", device=self.device)
         if cfg.interface.general.interface_type == 'mlp':
             interface_actor_critic = InterfaceMLP(user_actor_critic, obs_vocab_size=10, **self.cfg.interface.mlp, **cfg.actor_critic)
         elif cfg.interface.general.interface_type == 'transformer':

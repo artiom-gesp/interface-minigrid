@@ -48,7 +48,7 @@ class InterfaceActorCritic(nn.Module):
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.step = 1
         self.alpha = 0.99
-        self.agent_loss_scale = 10
+        self.agent_loss_scale = 3
 
         self.cnn = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
@@ -80,7 +80,7 @@ class InterfaceActorCritic(nn.Module):
     def mask_output(self, obs):
         
         masked_logits = obs.clone().detach()
-        masked_logits[..., 0] %= 11
+        masked_logits[..., 0] %= 10
         masked_logits[..., 1] %= 6
         masked_logits[..., 2] %= 3
 
@@ -89,8 +89,8 @@ class InterfaceActorCritic(nn.Module):
     def compute_loss(self, batch: Batch, gamma: float, lambda_: float, entropy_weight: float, burn_in: int, reset_horizon: int, **kwargs: Any) -> LossWithIntermediateLosses:
         assert not self.use_original_obs
 
-        true_obs = batch["observations"][:, :, 0, :7, :7].squeeze(2)
-        modified_obs = rearrange(batch["observations"][:, :, 1, :7, :7].squeeze(2), 'b t w h c -> b t (w h c)')
+        true_obs = batch["observations"][:, :, 0, :5, :5].squeeze(2)
+        modified_obs = rearrange(batch["observations"][:, :, 1, :5, :5].squeeze(2), 'b t w h c -> b t (w h c)')
         full_obs = rearrange(batch["observations"][:, :, 2].squeeze(2), 'b t w h c -> (b t) c w h')
 
         tokens = rearrange(true_obs, 'b t w h c -> (b t) (w h c)').int()
@@ -113,22 +113,23 @@ class InterfaceActorCritic(nn.Module):
         values = values[:, :-1]
 
         d = MultiCategorical(logits=logits[:, :-1])
-        # alpha_ = max(self.alpha ** (self.step / 80), 0.25)
-        # agent_scale = self.agent_loss_scale * (1 - alpha_)
-        agent_scale = 1
+
+        alpha_ = max(self.alpha ** (self.step / 80), 0.1)
+        agent_scale = self.agent_loss_scale * (1 - alpha_)
+
     
         log_probs = d.log_prob(modified_obs[:, :-1])
         loss_actions = -1 * agent_scale * (log_probs * (lambda_returns - values.detach())).mean()
-        loss_entropy = - agent_scale * entropy_weight * d.entropy().mean()
+        loss_entropy = -1 * entropy_weight * d.entropy().mean()
         loss_values = agent_scale * F.mse_loss(values, lambda_returns)
 
-        # input = rearrange(outputs.logits_actions[:, :-1], 'b s l d -> (b s) l d')
-        # target = rearrange(outputs.true_obs[:, :-1], 'b s l -> (b s) l')
-        # self.step += 1
-        # loss_curriculum = alpha_ * sum([self.cross_entropy_loss(input[:, idx], target[:, idx]) for idx in range(input.size(1))])
+        input = outputs.logits_actions[:, :-1]
+        target = tokens[:, :-1].type(torch.LongTensor).to(input.device)
+        self.step += 1
+        loss_curriculum = alpha_ * sum([self.cross_entropy_loss(input[:, idx], target[:, idx]) for idx in range(input.size(1))])
 
-        # return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy, loss_curriculum=loss_curriculum)
-        return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
+        return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy, loss_curriculum=loss_curriculum)
+        # return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
 
 
     def imagine(self, batch: Batch, tokenizer: Tokenizer, world_model: WorldModel, horizon: int, reset_horizon: int, show_pbar: bool = False) -> ImagineOutput:
