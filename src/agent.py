@@ -76,14 +76,15 @@ class InterfaceAgent(nn.Module):
         #     input_ac = obs
         # else:
         #     input_ac = torch.clamp(self.tokenizer.encode_decode(obs, should_preprocess=True, should_postprocess=True), 0, 1)
-        _, c, w, h = obs.size()
+        _, w, h, c = obs.size()
 
         tokens = rearrange(obs, 'b w h c -> b (w h c)').int()
         full_tokens = rearrange(full_obs, 'b w h c -> b c w h').int()
         outputs_interface_ac = self.actor_critic(tokens, full_tokens)
         modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
-        modified_obs = rearrange(modified_obs, 'b (c w h) -> b c w h', c=c, w=w, h=h)
+        modified_obs = rearrange(modified_obs, 'b (w h c) -> b w h c', c=c, w=w, h=h)
         masked_modified_obs = self.actor_critic.mask_output(modified_obs)
+        
         # self.wm_env.obs_tokens = latent_obs
 
         # logits_actions = self.user_actor_critic(modified_obs).logits_actions[:, -1] / temperature

@@ -24,7 +24,7 @@ initialization:
 
 common:
   epochs: 600
-  device: cuda:3
+  device: cuda:7
   do_checkpoint: True
   seed: 0
   sequence_length: 15
@@ -39,7 +39,7 @@ collection:
       epsilon: 0.01
       should_sample: True
       temperature: 1.0
-      num_steps: 20
+      num_steps: 200
       burn_in: ${training.actor_critic.burn_in}
   test:
     num_envs: 1
@@ -52,13 +52,13 @@ collection:
       burn_in: ${training.actor_critic.burn_in}
 
 training:
-  should: should
+  should: True
   learning_rate: 0.0001
   actor_critic:
     batch_num_samples: 32
     grad_acc_steps: 1
     max_grad_norm: 10.0
-    start_after_epochs: 0
+    start_after_epochs: 10
     steps_per_epoch: 200
     imagine_horizon: ${common.sequence_length}
     reset_horizon: 3
@@ -75,6 +75,6 @@ evaluation:
   actor_critic:
     num_episodes_to_save: ${training.actor_critic.batch_num_samples}
     horizon: ${training.actor_critic.imagine_horizon}
-    start_after_epochs: ${training.actor_critic.start_after_epochs}
+    start_after_epochs: 20
     reset_horizon: ${training.actor_critic.reset_horizon}
 

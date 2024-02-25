@@ -81,7 +81,7 @@ class InterfaceActorCritic(nn.Module):
         
         masked_logits = obs.clone().detach()
         masked_logits[..., 0] %= 11
-        masked_logits[..., 1] %= 5
+        masked_logits[..., 1] %= 6
         masked_logits[..., 2] %= 3
 
         return masked_logits
@@ -89,11 +89,12 @@ class InterfaceActorCritic(nn.Module):
     def compute_loss(self, batch: Batch, gamma: float, lambda_: float, entropy_weight: float, burn_in: int, reset_horizon: int, **kwargs: Any) -> LossWithIntermediateLosses:
         assert not self.use_original_obs
 
-        true_obs = batch["observations"][:, :, 0].squeeze(2)
-        modified_obs = rearrange(batch["observations"][:, :, 1].squeeze(2), 'b t w h c -> b t (w h c)')
+        true_obs = batch["observations"][:, :, 0, :7, :7].squeeze(2)
+        modified_obs = rearrange(batch["observations"][:, :, 1, :7, :7].squeeze(2), 'b t w h c -> b t (w h c)')
+        full_obs = rearrange(batch["observations"][:, :, 2].squeeze(2), 'b t w h c -> (b t) c w h')
 
         tokens = rearrange(true_obs, 'b t w h c -> (b t) (w h c)').int()
-        outputs = self(tokens)
+        outputs = self(tokens, full_obs)
 
         b = true_obs.size(0)
         t = true_obs.size(1)
@@ -286,9 +287,7 @@ class InterfaceTransformer(InterfaceActorCritic):
         assert num_steps <= self.config.max_tokens
         prev_steps = 0 if self.keys_values_wm is None else self.keys_values_wm.size
 
-        print(full_tokens.shape)
         x_full = self.cnn(full_tokens.float())
-        print(x_full.shape)
         x_full = self.full_linear(x_full)
         if self.keys_values_wm.size + num_steps > self.transformer.config.max_tokens:
            self.keys_values_wm = self.transformer.generate_empty_keys_values(n=self.n, max_tokens=self.config.max_tokens)
@@ -297,8 +296,9 @@ class InterfaceTransformer(InterfaceActorCritic):
         sequences += self.pos_emb(prev_steps + torch.arange(num_steps, device=tokens.device))
 
         x = self.transformer(sequences, None)
-        logits_actions = self.actor_linear(torch.concat([x, x_full], dim=-1))
+        x_combined = torch.concat([x, x_full.unsqueeze(1).expand(-1, x.size(1), -1)], dim=-1)
+        logits_actions = self.actor_linear(x_combined)
 
-        means_values = self.critic_linear(x)
+        means_values = self.critic_linear(x_combined)
         means_values = means_values.sum(-2)
         return InterfaceOutput(logits_actions, means_values)

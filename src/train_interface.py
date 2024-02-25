@@ -80,7 +80,7 @@ class InterfaceTrainer:
         self.episode_manager_imagination = EpisodeDirManager(self.episode_dir / 'imagination', max_num_episodes=cfg.evaluation.actor_critic.num_episodes_to_save)
 
         def env_fn():
-            env = gym.make("MiniGrid-FourRooms-v0", render_mode="rgb_array")
+            env = gym.make("MiniGrid-FourRooms-v0", render_mode="rgb_array", max_episode_steps=1000)
             env = ImgObsWrapper(env)
 
             return env
@@ -103,9 +103,9 @@ class InterfaceTrainer:
 
         user_actor_critic = PPO.load("/local/home/argesp/interface-minigrid/ppo_minigrid_foor_rooms_v1", device=self.device)
         if cfg.interface.general.interface_type == 'mlp':
-            interface_actor_critic = InterfaceMLP(user_actor_critic, obs_vocab_size=11, **self.cfg.interface.mlp, **cfg.actor_critic)
+            interface_actor_critic = InterfaceMLP(user_actor_critic, obs_vocab_size=10, **self.cfg.interface.mlp, **cfg.actor_critic)
         elif cfg.interface.general.interface_type == 'transformer':
-            interface_actor_critic = InterfaceTransformer(user_actor_critic, obs_vocab_size=11, config=instantiate(cfg.interface.transformer))
+            interface_actor_critic = InterfaceTransformer(user_actor_critic, obs_vocab_size=10, config=instantiate(cfg.interface.transformer))
         else:
             raise NotImplementedError(f"Interface type {cfg.interface.general.interface_type} not implemented")
         self.interface_agent = InterfaceAgent(user_actor_critic, interface_actor_critic, cfg.training.actor_critic.reset_horizon).to(self.device)
@@ -205,7 +205,6 @@ class InterfaceTrainer:
         if epoch > cfg_actor_critic.start_after_epochs:
             mode_str = 'imagination'
             batch = self.test_dataset.sample_batch(batch_num_samples=self.episode_manager_imagination.max_num_episodes, sequence_length=1 + self.cfg.training.actor_critic.imagine_horizon, sample_from_start=True)
-            outputs = self.interface_agent.actor_critic.imagine(self._to_device(batch), self.interface_agent.tokenizer, self.interface_agent.world_model, horizon=self.cfg.evaluation.actor_critic.horizon, reset_horizon=self.cfg.evaluation.actor_critic.reset_horizon, show_pbar=True)
 
             to_log = []
             for i, (o, a, r, d) in enumerate(zip(batch["observations"].cpu(), batch["actions"].cpu(), batch["rewards"].cpu(), batch["ends"].long().cpu())):  # Make everything (N, T, ...) instead of (T, N, ...)
