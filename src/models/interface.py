@@ -114,7 +114,8 @@ class InterfaceActorCritic(nn.Module):
 
         d = MultiCategorical(logits=logits[:, :-1])
 
-        alpha_ = max(self.alpha ** (self.step / 80), 0.1)
+        alpha_ = self.alpha ** (self.step / 20)
+        # alpha_ = max(self.alpha ** (self.step / 80), 0.1)
         agent_scale = self.agent_loss_scale * (1 - alpha_)
 
     

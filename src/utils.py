@@ -210,32 +210,44 @@ def update_full_view(env, view):
     short_side = view_size // 2
     long_side = view_size - 1
 
-    y_top, x_top = get_top(agent_dir, agent_pos, short_side, long_side)
+    x_top, y_top = get_top(agent_dir, agent_pos, short_side, long_side)
 
-    end_x = env.size - x_top
-    end_y = env.size - y_top
-
-
-    if agent_dir == 0:
-        start_y = short_side - y if y - short_side < 0 else 0
-        start_x = 4 - x if x - long_side < 0 else 0
-    elif agent_dir == 1:
-        start_y = 0
-        start_x = short_side - x if x - short_side < 0 else 0
-    elif agent_dir == 2:
+    if agent_dir == 0: # right
         start_y = short_side - y if y - short_side < 0 else 0
         start_x = 0
-    elif agent_dir == 3:
-        start_y = long_side - y if y - long_side < 0 else 0
+        end_x = env.size - x
+        end_y = (view_size - short_side) + (env.size - y - 1)
+
+    elif agent_dir == 1: # down
+        start_y = 0
         start_x = short_side - x if x - short_side < 0 else 0
 
-    cropped_view = view[start_y:end_y, start_x:end_x]
+        end_x = (view_size - short_side) + (env.size - x - 1)
+        end_y = env.size - y
+
+    elif agent_dir == 2: # left
+        start_y = short_side - y if y - short_side < 0 else 0
+        start_x = long_side - x if x - long_side - 1 < 0 else 0
+
+        end_x = view_size
+        end_y = (view_size - short_side) + (env.size - y - 1)
+
+
+    elif agent_dir == 3: # top
+
+        start_x = short_side - x if x - short_side < 0 else 0
+        start_y = long_side - y if y - long_side < 0 else 0
+
+        end_x = (view_size - short_side) + (env.size - x - 1)
+        end_y = view_size
+
+    cropped_view = view[start_x:end_x, start_y:end_y]
 
     full_view = env.grid.encode()
 
     width, height, _ = cropped_view.shape
 
-    full_view[y_top:y_top+width, x_top:x_top+height] = cropped_view
+    full_view[x_top:x_top+width, y_top:y_top+height] = cropped_view
 
     return full_view
 
