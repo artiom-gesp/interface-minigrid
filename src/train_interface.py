@@ -30,9 +30,7 @@ from collector import Collector
 from envs import SingleProcessEnv, MultiProcessEnv
 from episode import Episode
 from make_reconstructions import make_reconstructions_from_batch
-from models.actor_critic import ActorCritic
 from models.interface import InterfaceMLP, InterfaceTransformer
-from models.world_model import WorldModel
 from utils import configure_optimizer, EpisodeDirManager, set_seed
 
 

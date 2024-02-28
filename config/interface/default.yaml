@@ -1,5 +1,5 @@
 general:
-  interface_type: 'transformer'
+  interface_type: 'mlp'
 
 transformer:
   _target_: models.TransformerConfig
@@ -15,6 +15,6 @@ transformer:
 
 
 mlp:
-  embed_dim: 64
+  embed_dim: 128
   num_layers: 1
-  wm_token_dim: 16
+  wm_token_dim: 75

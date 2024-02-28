@@ -48,7 +48,7 @@ class InterfaceActorCritic(nn.Module):
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.step = 1
         self.alpha = 0.99
-        self.agent_loss_scale = 3
+        self.agent_loss_scale = 5
 
         self.cnn = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
@@ -61,7 +61,7 @@ class InterfaceActorCritic(nn.Module):
         )
 
         with torch.no_grad():
-            self.n_flatten = self.cnn(torch.rand((1, 3, 19, 19))).shape[1]
+            self.n_full = self.cnn(torch.rand((1, 3, 19, 19))).shape[1]
 
 
     def __repr__(self) -> str:
@@ -114,8 +114,8 @@ class InterfaceActorCritic(nn.Module):
 
         d = MultiCategorical(logits=logits[:, :-1])
 
-        alpha_ = self.alpha ** (self.step / 20)
-        # alpha_ = max(self.alpha ** (self.step / 80), 0.1)
+        # alpha_ = self.alpha ** (self.step / 20)
+        alpha_ = max(self.alpha ** (self.step / 20), 0.001)
         agent_scale = self.agent_loss_scale * (1 - alpha_)
 
     
@@ -202,8 +202,15 @@ class InterfaceMLP(InterfaceActorCritic):
         super().__init__(user_actor_critic, use_original_obs)
 
         self.non_lin = nn.ELU()
-        self.critic_layers = [nn.Linear(wm_token_dim, embed_dim), self.non_lin]
-        self.actor_layers = [nn.Linear(wm_token_dim, embed_dim), self.non_lin]
+
+        with torch.no_grad():
+            self.n_partial = self.cnn(torch.rand((1, 3, 5, 5))).shape[1]
+
+        self.convert = nn.Linear(self.n_full, self.n_partial)
+
+        self.critic_layers = [nn.Linear(2 * self.n_partial, embed_dim), self.non_lin]
+        self.actor_layers = [nn.Linear(2 * self.n_partial, embed_dim), self.non_lin]
+
         for _ in range(num_layers):
             self.critic_layers.append(nn.Linear(embed_dim, embed_dim))
             self.critic_layers.append(self.non_lin)
@@ -215,6 +222,8 @@ class InterfaceMLP(InterfaceActorCritic):
         self.critic = nn.Sequential(*self.critic_layers)
         self.actor = nn.Sequential(*self.actor_layers)
 
+
+
         self.apply(init_weights)
 
 
@@ -222,12 +231,19 @@ class InterfaceMLP(InterfaceActorCritic):
     def __repr__(self) -> str:
         return "interface_actor_critic_mlp"
     
-    def forward(self, tokens: torch.FloatTensor) -> InterfaceOutput:
+    def forward(self, tokens: torch.LongTensor, full_tokens: torch.LongTensor) -> InterfaceOutput:
+        
+        tokens = rearrange(tokens, 'b w h c -> b c w h').int()
 
-        logits_actions = self.actor(tokens.float())
-        means_values = self.critic(tokens.float())
+        x_full = self.convert(self.cnn(full_tokens.float()))
+        x_partial = self.cnn(tokens.float())
 
-        logits_actions = rearrange(logits_actions, 'b (h w) -> b h w', h=tokens.size(1))
+        x_combined = torch.concat([x_partial, x_full], dim=-1)
+
+        logits_actions = self.actor(x_combined)
+        means_values = self.critic(x_combined)
+
+        logits_actions = rearrange(logits_actions, 'b (h w) -> b h w', h=tokens.size(1) * tokens.size(2) * tokens.size(3))
 
         return InterfaceOutput(logits_actions, means_values)
 
@@ -256,9 +272,9 @@ class InterfaceTransformer(InterfaceActorCritic):
             embedding_tables=nn.ModuleList([nn.Embedding(obs_vocab_size, config.embed_dim), nn.Embedding(obs_vocab_size, config.embed_dim)])
         )
 
-        self.full_linear = nn.Sequential(nn.Linear(self.n_flatten, config.embed_dim), nn.ReLU())
+        self.full_linear = nn.Sequential(nn.Linear(self.n_full, config.embed_dim), nn.ReLU())
 
-        print(self.n_flatten)
+        print(self.n_full)
         
         self.critic_linear = nn.Sequential(
                 nn.Linear(2 * config.embed_dim, config.embed_dim),
@@ -285,6 +301,9 @@ class InterfaceTransformer(InterfaceActorCritic):
         self.n = n
     
     def forward(self, tokens: torch.LongTensor, full_tokens: torch.LongTensor) -> InterfaceOutput:
+
+        tokens = rearrange(tokens, 'b w h c -> b (w h c)').int()
+
         num_steps = tokens.size(1)  # (B, T)
         assert num_steps <= self.config.max_tokens
         prev_steps = 0 if self.keys_values_wm is None else self.keys_values_wm.size

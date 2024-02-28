@@ -79,12 +79,11 @@ class InterfaceAgent(nn.Module):
         #     input_ac = torch.clamp(self.tokenizer.encode_decode(obs, should_preprocess=True, should_postprocess=True), 0, 1)
         _, w, h, c = obs.size()
 
-        tokens = rearrange(obs, 'b w h c -> b (w h c)').int()
         
         f_obs = env.grid.encode()
         full_tokens = torch.IntTensor(full_obs(env)).to(self.device)
 
-        outputs_interface_ac = self.actor_critic(tokens, rearrange(full_tokens, 'b w h c -> b c w h'))
+        outputs_interface_ac = self.actor_critic(obs, rearrange(full_tokens, 'b w h c -> b c w h'))
         modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
         modified_obs = rearrange(modified_obs, 'b (w h c) -> b w h c', c=c, w=w, h=h)
         masked_modified_obs = self.actor_critic.mask_output(modified_obs).cpu().numpy()
