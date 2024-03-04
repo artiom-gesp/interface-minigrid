@@ -6,15 +6,15 @@ transformer:
   tokens_per_block: 17
   max_blocks: 20
   attention: 'causal'
-  num_layers: 4
+  num_layers: 2
   num_heads: 2
-  embed_dim: 256
+  embed_dim: 128
   embed_pdrop: 0.1
   resid_pdrop: 0.1
   attn_pdrop: 0.1
 
 
 mlp:
-  embed_dim: 128
+  embed_dim: 64
   num_layers: 1
   wm_token_dim: 75

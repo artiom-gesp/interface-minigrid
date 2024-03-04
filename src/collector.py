@@ -58,8 +58,8 @@ class Collector:
             padded_mod_obs = F.pad(modified_obs, (0, 0, 0, f_obs.size(2) - obs.size(2), 0, f_obs.size(1) - obs.size(1)))
             observations.append(torch.cat([padded_obs.cpu(), padded_mod_obs.cpu(), f_obs.cpu()], dim=0).unsqueeze(0))
 
-            # if random.random() < epsilon:
-            #     act = self.heuristic.act(obs).cpu().numpy()
+            if random.random() < epsilon:
+                act = self.heuristic.act(obs).cpu().numpy()
 
             self.obs, reward, done, _ = self.env.step(act)
  
