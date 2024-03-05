@@ -16,7 +16,9 @@ import time
 from typing import Any, Dict, Optional, Tuple
 import gymnasium as gym
 from minigrid.wrappers import ImgObsWrapper
+from minigrid.core.world_object import Goal
 
+import numpy as np
 import hydra
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -37,6 +39,42 @@ from utils import configure_optimizer, EpisodeDirManager, set_seed
 from stable_baselines3 import PPO
 
 torch.set_num_threads(10)
+
+class CustomReward(gym.Wrapper):
+    def __init__(self, env):
+        """A wrapper that adds an exploration bonus to less visited (state,action) pairs.
+
+        Args:
+            env: The environment to apply the wrapper
+        """
+        super().__init__(env)
+        self.nb_step = 0
+        
+
+    def step(self, action):
+        obs, _, terminated, truncated, info = self.env.step(action)
+
+        goal_x, goal_y = self.goal_pos
+        agent_x, agent_y = self.env.agent_pos
+        reward_pos = 1 / (1 + np.sqrt((goal_x - agent_x)**2 + (goal_y - agent_y)**2))
+        reward_time = self.nb_step / self.env.max_steps
+
+        self.nb_step += 1
+        return obs, reward_pos - reward_time, terminated, truncated, info
+
+
+    def reset(self):
+
+        obs = self.env.reset()
+        
+        self.nb_step = 0
+        for i in range(self.env.grid.width):
+            for j in range(self.env.grid.height):
+                tile = self.env.grid.get(i, j)
+                if isinstance(tile, Goal):
+                    self.goal_pos = (i, j)
+        
+        return obs
 
 
 class InterfaceTrainer:
@@ -77,9 +115,12 @@ class InterfaceTrainer:
         episode_manager_test = EpisodeDirManager(self.episode_dir / 'test', max_num_episodes=cfg.collection.test.num_episodes_to_save)
         self.episode_manager_imagination = EpisodeDirManager(self.episode_dir / 'imagination', max_num_episodes=cfg.evaluation.actor_critic.num_episodes_to_save)
 
+
+        
         def env_fn():
             env = gym.make("MiniGrid-FourRooms-v0", render_mode="rgb_array", max_steps=500, agent_view_size=5)
             env = ImgObsWrapper(env)
+            env = CustomReward(env)
 
             return env
 

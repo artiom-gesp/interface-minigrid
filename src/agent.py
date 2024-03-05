@@ -1,5 +1,6 @@
 from pathlib import Path
 from einops import rearrange
+import random
 
 import torch
 from torch.distributions.categorical import Categorical
@@ -71,22 +72,29 @@ class InterfaceAgent(nn.Module):
             self.representations = []
             i += 1
     
-    def act(self, obs: torch.IntTensor, env) -> torch.LongTensor:
+    def act(self, obs: torch.IntTensor, env, epsilon) -> torch.LongTensor:
 
         # if self.user_actor_critic.use_original_obs:
         #     input_ac = obs
         # else:
         #     input_ac = torch.clamp(self.tokenizer.encode_decode(obs, should_preprocess=True, should_postprocess=True), 0, 1)
-        _, w, h, c = obs.size()
-
-        
+        b, w, h, c = obs.size()
         f_obs = env.grid.encode()
         full_tokens = torch.IntTensor(full_obs(env)).to(self.device)
 
-        outputs_interface_ac = self.actor_critic(obs, rearrange(full_tokens, 'b w h c -> b c w h'))
-        modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
-        modified_obs = rearrange(modified_obs, 'b (w h c) -> b w h c', c=c, w=w, h=h)
-        masked_modified_obs = self.actor_critic.mask_output(modified_obs).cpu().numpy()
+        if random.random() < epsilon:
+            x = random.randint(0, w - 1)
+            y = random.randint(0, h - 1)
+
+            modified_obs = obs.clone()
+            modified_obs[:, x, y] = torch.randint(0, 10, (b, c))
+            masked_modified_obs = self.actor_critic.mask_output(modified_obs).cpu().numpy()
+            print("MODIFIED!!!!")
+        else:
+            outputs_interface_ac = self.actor_critic(obs, rearrange(full_tokens, 'b w h c -> b c w h'))
+            modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
+            modified_obs = rearrange(modified_obs, 'b (w h c) -> b w h c', c=c, w=w, h=h)
+            masked_modified_obs = self.actor_critic.mask_output(modified_obs).cpu().numpy()
 
         aligned_obs = np.rot90(masked_modified_obs.squeeze(0), (4 - np.abs(env.agent_dir - 3)) % 4)
 

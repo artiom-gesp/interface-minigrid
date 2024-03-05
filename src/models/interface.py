@@ -48,7 +48,7 @@ class InterfaceActorCritic(nn.Module):
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.step = 1
         self.alpha = 0.99
-        self.agent_loss_scale = 5
+        self.agent_loss_scale = 0.1
 
         self.cnn = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
