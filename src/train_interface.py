@@ -60,7 +60,12 @@ class CustomReward(gym.Wrapper):
         reward_time = self.nb_step / self.env.max_steps
 
         self.nb_step += 1
-        return obs, reward_pos - reward_time, terminated, truncated, info
+
+        reward = reward_pos - reward_time
+        if terminated:
+            reward += sum([x / 500 for x in range(1, self.env.max_steps)]) + 1
+
+        return obs, reward, terminated, truncated, info
 
 
     def reset(self):

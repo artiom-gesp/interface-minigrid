@@ -89,7 +89,6 @@ class InterfaceAgent(nn.Module):
             modified_obs = obs.clone()
             modified_obs[:, x, y] = torch.randint(0, 10, (b, c))
             masked_modified_obs = self.actor_critic.mask_output(modified_obs).cpu().numpy()
-            print("MODIFIED!!!!")
         else:
             outputs_interface_ac = self.actor_critic(obs, rearrange(full_tokens, 'b w h c -> b c w h'))
             modified_obs = MultiCategorical(logits=outputs_interface_ac.logits_actions).sample()
