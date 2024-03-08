@@ -110,8 +110,6 @@ class InterfaceActorCritic(nn.Module):
                 lambda_=lambda_,
             )
 
-        values = values
-
         d = MultiCategorical(logits=logits)
 
         # alpha_ = self.alpha ** (self.step / 20)

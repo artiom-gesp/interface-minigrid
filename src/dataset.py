@@ -117,8 +117,8 @@ class EpisodesDatasetRamMonitoring(EpisodesDataset):
     Prevent episode dataset from going out of RAM.
     Warning: % looks at system wide RAM usage while G looks only at process RAM usage.
     """
-    def __init__(self, max_ram_usage: str, name: Optional[str] = None) -> None:
-        super().__init__(max_num_episodes=None, name=name)
+    def __init__(self, max_ram_usage: str, name: Optional[str] = None, max_num_episodes: Optional[int] = None) -> None:
+        super().__init__(max_num_episodes=max_num_episodes, name=name)
         self.max_ram_usage = max_ram_usage
         self.num_steps = 0
         self.max_num_steps = None
@@ -140,9 +140,11 @@ class EpisodesDatasetRamMonitoring(EpisodesDataset):
     def add_episode(self, episode: Episode) -> int:
         if self.max_num_steps is None and self.check_ram_usage():
             self.max_num_steps = self.num_steps
-        self.num_steps += len(episode)
-        while (self.max_num_steps is not None) and (self.num_steps > self.max_num_steps):
-            self._popleft()
+            self.num_steps += len(episode)
+            while (self.max_num_steps is not None) and (self.num_steps > self.max_num_steps):
+                self._popleft()
+        elif self.max_num_episodes is not None and len(self.episodes) == self.max_num_episodes:
+            self._popleft() 
         episode_id = self._append_new_episode(episode)
         return episode_id
 

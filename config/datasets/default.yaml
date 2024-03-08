@@ -2,6 +2,7 @@ train:
   _target_: dataset.EpisodesDatasetRamMonitoring
   max_ram_usage: 30G
   name: train_dataset
+  max_num_episodes: 10
 test:
   _target_: dataset.EpisodesDataset
   max_num_episodes: null

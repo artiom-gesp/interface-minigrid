@@ -21,6 +21,7 @@ class Episode:
 
     def __post_init__(self):
         assert len(self.observations) == len(self.actions) == len(self.rewards) == len(self.ends) == len(self.mask_padding)
+    
         if self.ends.sum() > 0:
             idx_end = torch.argmax(self.ends) + 1
             self.observations = self.observations[:idx_end]

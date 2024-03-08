@@ -173,6 +173,7 @@ class InterfaceTrainer:
 
             if self.cfg.training.should:
                 if epoch <= self.cfg.collection.train.stop_after_epochs:
+                    self.train_dataset.clear()
                     to_log += self.train_collector.collect(self.interface_agent, epoch, **self.cfg.collection.train.config)
                 to_log += self.train_agent(epoch)
 
