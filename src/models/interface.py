@@ -86,7 +86,7 @@ class InterfaceActorCritic(nn.Module):
 
         return masked_logits
         
-    def compute_loss(self, batch: Batch, gamma: float, lambda_: float, entropy_weight: float, burn_in: int, reset_horizon: int, **kwargs: Any) -> LossWithIntermediateLosses:
+    def compute_loss(self, batch: Batch, gamma: float, lambda_: float, entropy_weight: float, **kwargs: Any) -> LossWithIntermediateLosses:
         assert not self.use_original_obs
 
         true_obs = batch["observations"][:, :, 0, :5, :5].squeeze(2)
@@ -113,7 +113,7 @@ class InterfaceActorCritic(nn.Module):
         d = MultiCategorical(logits=logits)
 
         # alpha_ = self.alpha ** (self.step / 20)
-        alpha_ = max(self.alpha ** (self.step / 20), 0.0001)
+        alpha_ = max(self.alpha ** (self.step / 15), 0.0001)
         agent_scale = self.agent_loss_scale * (1 - alpha_)
 
     
@@ -233,7 +233,6 @@ class InterfaceTransformer(InterfaceActorCritic):
     
     def reset(self, n: int, burnin_observations: Optional[torch.Tensor] = None, mask_padding: Optional[torch.Tensor] = None):
 
-        super().reset(n, burnin_observations, mask_padding)
         self.keys_values_wm = self.transformer.generate_empty_keys_values(n=n, max_tokens=self.config.max_tokens)
         self.n = n
     
