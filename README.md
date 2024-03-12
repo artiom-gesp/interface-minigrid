@@ -2,9 +2,12 @@
 
 ## Setup
 
-- Install [PyTorch](https://pytorch.org/get-started/locally/) (torch and torchvision). Code developed with torch==1.11.0 and torchvision==0.12.0.
-- Install [other dependencies](requirements.txt): `pip install -r requirements.txt`
-- Warning: Atari ROMs will be downloaded with the dependencies, which means that you acknowledge that you have the license to use them.
+- Use `conda env create -f environment.yml` to setup the environment.
+- The install should partially fail because of minigrid, to fix it, do:
+    - `conda activate minigrid_env`
+    - `pip install setuptools==65.5.0`
+    - `pip install wheel==0.38.0`
+    - `conda env update -f environment.yml`
 
 ## Launch a training run
 
