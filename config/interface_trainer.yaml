@@ -40,8 +40,8 @@ collection:
       epsilon: 0.01
       should_sample: True
       temperature: 1.0
-      num_steps: 500
-      # num_episodes: 1
+      # num_steps: 500
+      num_episodes: 1
       burn_in: ${training.actor_critic.burn_in}
   test:
     num_envs: 1

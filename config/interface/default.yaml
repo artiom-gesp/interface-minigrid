@@ -1,5 +1,5 @@
 general:
-  interface_type: 'transformer'
+  interface_type: 'mlp'
 
 transformer:
   _target_: models.TransformerConfig
