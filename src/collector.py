@@ -66,6 +66,8 @@ class Collector:
             alpha_ = 1
             self.step += 1
 
+
+            # reconstruction reward is added here for simplicity
             reward += alpha_ / (1 + torch.sqrt(torch.sum((modified_obs - obs) ** 2))).item()
 
             for _ in range(skip_frames):

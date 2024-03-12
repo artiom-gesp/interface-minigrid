@@ -42,7 +42,7 @@ torch.set_num_threads(10)
 
 class CustomReward(gym.Wrapper):
     def __init__(self, env):
-        """A wrapper that adds an exploration bonus to less visited (state,action) pairs.
+        """A wrapper that adds custom non sparse rewards to the environment.
 
         Args:
             env: The environment to apply the wrapper
@@ -157,9 +157,6 @@ class InterfaceTrainer:
 
         self.optimizer_interface = torch.optim.Adam(self.interface_agent.actor_critic.parameters(), lr=cfg.training.learning_rate)
 
-        # if cfg.initialization.path_to_checkpoint is not None:
-        #     self.interface_agent.load(**cfg.initialization, device=self.device)
-
         if cfg.common.resume:
             self.load_checkpoint()
 
@@ -173,7 +170,7 @@ class InterfaceTrainer:
 
             if self.cfg.training.should:
                 if epoch <= self.cfg.collection.train.stop_after_epochs:
-                    self.train_dataset.clear()
+                    self.train_dataset.clear() # removing this line enables proper replay buffer
                     to_log += self.train_collector.collect(self.interface_agent, epoch, **self.cfg.collection.train.config)
                 to_log += self.train_agent(epoch)
 
@@ -183,7 +180,7 @@ class InterfaceTrainer:
                 try:
                     to_log += self.eval_agent(epoch)
                 except:
-                    print("for some reason testing failed uwu")
+                    print("fix this")
 
             if self.cfg.training.should:
                 self.save_checkpoint(epoch, save_agent_only=not self.cfg.common.do_checkpoint)

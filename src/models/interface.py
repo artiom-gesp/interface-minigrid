@@ -114,10 +114,9 @@ class InterfaceActorCritic(nn.Module):
 
         # alpha_ = self.alpha ** (self.step / 20)
         # alpha_ = max(self.alpha ** (self.step / 15), 0.0001)
-        alpha_ = 0
+        alpha_ = 0 # above code is needed for curriculum (teacher forcing) loss
         agent_scale = self.agent_loss_scale * (1 - alpha_)
 
-    
         log_probs = d.log_prob(modified_obs)
         loss_actions = -1 * agent_scale * (log_probs * (lambda_returns - values.detach())).mean()
         loss_entropy = -1 * entropy_weight * d.entropy().mean()
@@ -162,11 +161,7 @@ class InterfaceMLP(InterfaceActorCritic):
         self.critic = nn.Sequential(*self.critic_layers)
         self.actor = nn.Sequential(*self.actor_layers)
 
-
-
         self.apply(init_weights)
-
-
 
     def __repr__(self) -> str:
         return "interface_actor_critic_mlp"
@@ -226,8 +221,6 @@ class InterfaceTransformer(InterfaceActorCritic):
             )
 
         self.apply(init_weights)
-
-
 
     def __repr__(self) -> str:
         return "interface_actor_critic_transformer"
