@@ -48,7 +48,7 @@ class InterfaceActorCritic(nn.Module):
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.step = 1
         self.alpha = 0.99
-        self.agent_loss_scale = 10
+        self.agent_loss_scale = 1
 
         self.cnn = nn.Sequential(
             nn.Conv2d(3, 16, (2, 2)),
@@ -113,7 +113,8 @@ class InterfaceActorCritic(nn.Module):
         d = MultiCategorical(logits=logits)
 
         # alpha_ = self.alpha ** (self.step / 20)
-        alpha_ = max(self.alpha ** (self.step / 15), 0.0001)
+        # alpha_ = max(self.alpha ** (self.step / 15), 0.0001)
+        alpha_ = 0
         agent_scale = self.agent_loss_scale * (1 - alpha_)
 
     
@@ -129,10 +130,10 @@ class InterfaceActorCritic(nn.Module):
         target = target.type(torch.LongTensor).to(input.device)
         self.step += 1
 
-        loss_curriculum = alpha_ * sum([self.cross_entropy_loss(input[:, idx], target[:, idx]) for idx in range(input.size(1))])
+        # loss_curriculum = alpha_ * sum([self.cross_entropy_loss(input[:, idx], target[:, idx]) for idx in range(input.size(1))])
 
-        return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy, loss_curriculum=loss_curriculum)
-        # return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
+        # return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy, loss_curriculum=loss_curriculum)
+        return LossWithIntermediateLosses(loss_actions=loss_actions, loss_values=loss_values, loss_entropy=loss_entropy)
 
 
 class InterfaceMLP(InterfaceActorCritic):

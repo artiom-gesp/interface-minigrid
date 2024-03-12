@@ -25,9 +25,11 @@ class Collector:
         self.obs = self.env.reset()
         self.episode_ids = [None] * self.env.num_envs
         self.heuristic = RandomHeuristic(self.env.num_actions)
+        self.alpha = 0.99
+        self.step = 1
 
     @torch.no_grad()
-    def collect(self, agent: Union[Agent, InterfaceAgent], epoch: int, epsilon: float, should_sample: bool, temperature: float, burn_in: int, *, num_steps: Optional[int] = None, num_episodes: Optional[int] = None):
+    def collect(self, agent: Union[Agent, InterfaceAgent], epoch: int, epsilon: float, should_sample: bool, temperature: float, burn_in: int, *, num_steps: Optional[int] = None, num_episodes: Optional[int] = None, skip_frames: Optional[int] = 0):
         assert 0 <= epsilon <= 1
 
         assert (num_steps is None) != (num_episodes is None)
@@ -59,6 +61,16 @@ class Collector:
             observations.append(torch.cat([padded_obs.cpu(), padded_mod_obs.cpu(), f_obs.cpu()], dim=0).unsqueeze(0))
 
             self.obs, reward, done, _ = self.env.step(act)
+
+            # alpha_ = max(self.alpha ** (self.step / 15), 0.0001)
+            alpha_ = 1
+            self.step += 1
+
+            reward += alpha_ / (1 + torch.sqrt(torch.sum((modified_obs - obs) ** 2))).item()
+
+            for _ in range(skip_frames):
+                self.env.step(act)
+                
  
             actions.append(act)
             rewards.append(reward)
